@@ -1,58 +1,58 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Fira+Code:wght@400;500;600&display=swap');
 
 /* ═══════════════════════════════════════════════════════
    DESIGN SYSTEM — Agentic SEO & AEO Swarm Dashboard
-   Dark theme · Glassmorphism · Vivid gradients · Micro-animations
+   Light theme · Clean modern aesthetic · Tech typography
    ═══════════════════════════════════════════════════════ */
 
 :root {
   /* ── Colors ────────────────────────────────────── */
-  --bg-primary: #09090b;
-  --bg-secondary: #111114;
-  --bg-tertiary: #1a1a1f;
-  --bg-card: rgba(255, 255, 255, 0.03);
-  --bg-card-hover: rgba(255, 255, 255, 0.06);
-  --bg-glass: rgba(255, 255, 255, 0.04);
-  --bg-glass-hover: rgba(255, 255, 255, 0.08);
+  --bg-primary: #e0f2fe;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f5f9;
+  --bg-card: rgba(255, 255, 255, 0.7);
+  --bg-card-hover: rgba(255, 255, 255, 0.85);
+  --bg-glass: rgba(255, 255, 255, 0.65);
+  --bg-glass-hover: rgba(255, 255, 255, 0.8);
 
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-medium: rgba(255, 255, 255, 0.10);
-  --border-accent: rgba(124, 58, 237, 0.3);
+  --border-subtle: rgba(14, 165, 233, 0.2);
+  --border-medium: rgba(14, 165, 233, 0.4);
+  --border-accent: rgba(79, 70, 229, 0.3);
 
-  --text-primary: #fafafa;
-  --text-secondary: #a1a1aa;
-  --text-tertiary: #71717a;
-  --text-muted: #52525b;
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-tertiary: #475569;
+  --text-muted: #64748b;
 
   /* Accent palette */
-  --accent-violet: #8b5cf6;
-  --accent-violet-glow: rgba(139, 92, 246, 0.15);
-  --accent-cyan: #06b6d4;
-  --accent-cyan-glow: rgba(6, 182, 212, 0.15);
+  --accent-violet: #4f46e5;
+  --accent-violet-glow: rgba(79, 70, 229, 0.15);
+  --accent-cyan: #0ea5e9;
+  --accent-cyan-glow: rgba(14, 165, 233, 0.15);
   --accent-emerald: #10b981;
   --accent-emerald-glow: rgba(16, 185, 129, 0.15);
   --accent-amber: #f59e0b;
   --accent-amber-glow: rgba(245, 158, 11, 0.15);
-  --accent-rose: #f43f5e;
-  --accent-rose-glow: rgba(244, 63, 94, 0.15);
+  --accent-rose: #ef4444;
+  --accent-rose-glow: rgba(239, 68, 68, 0.15);
 
   /* Gradients */
-  --gradient-primary: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
-  --gradient-seo: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
-  --gradient-aeo: linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%);
+  --gradient-primary: linear-gradient(135deg, #4f46e5 0%, #0ea5e9 100%);
+  --gradient-seo: linear-gradient(135deg, #4f46e5 0%, #818cf8 100%);
+  --gradient-aeo: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%);
   --gradient-success: linear-gradient(135deg, #10b981 0%, #34d399 100%);
-  --gradient-glow: radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(139, 92, 246, 0.06), transparent 40%);
+  --gradient-glow: radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(79, 70, 229, 0.06), transparent 40%);
 
   /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
-  --shadow-glow-violet: 0 0 20px rgba(139, 92, 246, 0.2);
-  --shadow-glow-cyan: 0 0 20px rgba(6, 182, 212, 0.2);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.15);
+  --shadow-glow-violet: 0 0 20px rgba(79, 70, 229, 0.2);
+  --shadow-glow-cyan: 0 0 20px rgba(14, 165, 233, 0.2);
 
   /* Typography */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: 'Fira Code', monospace;
 
   /* Transitions */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -74,7 +74,7 @@
 }
 
 html {
-  color-scheme: dark;
+  color-scheme: light;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -94,8 +94,8 @@ body::before {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse 80% 50% at 20% 10%, rgba(139, 92, 246, 0.08), transparent),
-    radial-gradient(ellipse 60% 40% at 80% 90%, rgba(6, 182, 212, 0.06), transparent),
+    radial-gradient(ellipse 80% 50% at 20% 10%, rgba(79, 70, 229, 0.08), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 90%, rgba(14, 165, 233, 0.06), transparent),
     radial-gradient(ellipse 50% 30% at 50% 50%, rgba(16, 185, 129, 0.03), transparent);
   pointer-events: none;
   z-index: 0;
@@ -171,7 +171,7 @@ body::before {
 
 .stat-card {
   background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
+  border: 2px solid var(--border-subtle);
   border-radius: var(--radius-md);
   padding: 20px;
   backdrop-filter: blur(12px);
@@ -231,7 +231,7 @@ body::before {
 /* ── Glass Card ─────────────────────────────────── */
 .glass-card {
   background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
+  border: 2px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   backdrop-filter: blur(16px);
   overflow: hidden;
@@ -361,7 +361,7 @@ body::before {
 
 .agent-card {
   background: var(--bg-glass);
-  border: 1px solid var(--border-subtle);
+  border: 2px solid var(--border-subtle);
   border-radius: var(--radius-md);
   padding: 16px;
   transition: all var(--transition-base);
@@ -477,6 +477,55 @@ body::before {
 }
 .agent-card__status-dot--complete { background: var(--accent-emerald); }
 .agent-card__status-dot--failed { background: var(--accent-rose); }
+
+.agent-card__error {
+  font-size: 11px;
+  color: var(--accent-rose);
+  background: var(--accent-rose-glow);
+  padding: 6px 8px;
+  border-radius: 4px;
+  margin-top: 10px;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+/* ── Agent Progress Bar ─────────────────────────── */
+.agent-card__progress-container {
+  width: 100%;
+  height: 4px;
+  background: var(--border-subtle);
+  border-radius: 99px;
+  margin-top: 14px;
+  overflow: hidden;
+  position: relative;
+}
+
+.agent-card__progress-bar {
+  height: 100%;
+  background: var(--agent-accent, var(--gradient-primary));
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+.agent-card__progress-bar--running {
+  animation: progress-indeterminate 1.5s infinite linear;
+  width: 50%;
+}
+
+.agent-card__progress-bar--complete {
+  width: 100%;
+  background: var(--accent-emerald);
+}
+
+.agent-card__progress-bar--failed {
+  width: 100%;
+  background: var(--accent-rose);
+}
+
+@keyframes progress-indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
 
 /* ── Transaction Log ────────────────────────────── */
 .tx-log {
@@ -610,6 +659,28 @@ body::before {
   border-radius: 4px;
 }
 
+/* ── Status Banner ──────────────────────────────── */
+.status-banner {
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: var(--radius-md);
+  padding: 12px 20px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  animation: fadeSlideIn var(--transition-base) ease-out;
+  transition: all var(--transition-base);
+}
+
+.status-banner__icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
 /* ── Animations ─────────────────────────────────── */
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; transform: scale(1); }
@@ -630,6 +701,123 @@ body::before {
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
+}
+
+/* ── Recent Jobs ────────────────────────────────── */
+.recent-jobs {
+  margin-top: 32px;
+}
+
+.recent-jobs__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.recent-jobs__table th {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-tertiary);
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.recent-jobs__table td {
+  font-size: 13px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+.recent-jobs__table tr:last-child td {
+  border-bottom: none;
+}
+
+.recent-jobs__table tr {
+  transition: background var(--transition-fast);
+}
+
+.recent-jobs__table tbody tr:hover {
+  background: var(--bg-glass-hover);
+}
+
+.recent-jobs__id {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent-violet);
+}
+
+.recent-jobs__url {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.recent-jobs__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.recent-jobs__badge--complete {
+  background: var(--accent-emerald-glow);
+  color: var(--accent-emerald);
+}
+
+.recent-jobs__badge--running {
+  background: var(--accent-amber-glow);
+  color: var(--accent-amber);
+}
+
+.recent-jobs__badge--failed {
+  background: var(--accent-rose-glow);
+  color: var(--accent-rose);
+}
+
+.recent-jobs__badge--pending,
+.recent-jobs__badge--settling {
+  background: var(--accent-violet-glow);
+  color: var(--accent-violet);
+}
+
+.recent-jobs__score {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.recent-jobs__score--high { color: var(--accent-emerald); }
+.recent-jobs__score--mid { color: var(--accent-amber); }
+.recent-jobs__score--low { color: var(--accent-rose); }
+
+.recent-jobs__cost {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--accent-emerald);
+}
+
+.recent-jobs__time {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.recent-jobs__empty {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 /* ── Responsive ─────────────────────────────────── */

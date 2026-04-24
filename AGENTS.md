@@ -1,6 +1,6 @@
-# CLAUDE.md — AI Agent Project Context
+# AGENTS.md — AI Agent Project Context
 
-> This file provides structured context for AI coding assistants (Claude, Gemini, GPT, Copilot, etc.)
+> This file provides structured context for AI coding assistants (Codex, Gemini, GPT, Copilot, etc.)
 > working on this codebase. Read this **before** making any changes.
 
 ---

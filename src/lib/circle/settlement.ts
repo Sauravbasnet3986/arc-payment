@@ -47,31 +47,45 @@ export async function settleAgentTask(params: {
   const client = await getCircleClient();
   if (!client) throw new Error('Circle SDK not available');
 
-  // Create the USDC transfer
-  const txRes = (await client.createTransaction({
-    blockchain: CIRCLE_CONSTANTS.BLOCKCHAIN,
-    walletId: env.ORCHESTRATOR_WALLET_ID,
-    destinationAddress: agentWalletAddress,
-    amount: [taskCostUSDC],
-    tokenAddress: CIRCLE_CONSTANTS.USDC_TOKEN_ADDRESS,
-    fee: CIRCLE_CONSTANTS.FEE_CONFIG,
-  })) as { data: { id: string; state: string; txHash?: string } };
+  // Resolve the tokenId for Arc testnet USDC from the orchestrator wallet balance.
+  // Circle transfer API is most reliable with tokenId for this flow.
+  const balanceRes = await client.getWalletTokenBalance({
+    id: env.ORCHESTRATOR_WALLET_ID,
+  });
+  const usdcToken = balanceRes.data?.tokenBalances?.find(
+    (b) => b.token?.symbol === 'USDC' && b.token?.blockchain === CIRCLE_CONSTANTS.BLOCKCHAIN
+  );
+  const usdcTokenId = usdcToken?.token?.id;
 
-  const txId = txRes.data.id;
+  if (!usdcTokenId) {
+    throw new Error(
+      'Unable to resolve Arc testnet USDC tokenId from orchestrator wallet. Fund the orchestrator wallet with USDC first.'
+    );
+  }
+
+  // Create the USDC transfer using the SDK's createTransaction method
+  // SDK method signature: createTransaction(input: CreateTransferTransactionInput)
+  const txRes = await client.createTransaction({
+    amount: [taskCostUSDC],
+    destinationAddress: agentWalletAddress,
+    walletId: env.ORCHESTRATOR_WALLET_ID,
+    tokenId: usdcTokenId,
+    fee: CIRCLE_CONSTANTS.FEE_CONFIG,
+  });
+
+  const txId = txRes.data?.id ?? '';
+  let state: string = txRes.data?.state ?? 'INITIATED';
+  let txHash: string | null = null;
 
   // Poll until finality (Arc < 1s, but allow up to 30s)
-  let state: string = txRes.data.state;
-  let txHash: string | null = txRes.data.txHash ?? null;
   const TERMINAL = ['COMPLETE', 'FAILED', 'CANCELLED'];
   const MAX_POLLS = 30;
 
   for (let i = 0; i < MAX_POLLS && !TERMINAL.includes(state); i++) {
     await new Promise((r) => setTimeout(r, 1000));
-    const poll = (await client.getTransaction({ id: txId })) as {
-      data: { transaction: { state: string; txHash?: string } };
-    };
-    state = poll.data.transaction.state;
-    txHash = poll.data.transaction.txHash ?? txHash;
+    const poll = await client.getTransaction({ id: txId });
+    state = poll.data?.transaction?.state ?? state;
+    txHash = poll.data?.transaction?.txHash ?? txHash;
   }
 
   return {

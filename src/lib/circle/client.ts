@@ -9,39 +9,10 @@
  */
 
 import { env } from '@/lib/env';
+import type { CircleDeveloperControlledWalletsClient, TokenBlockchain } from '@circle-fin/developer-controlled-wallets';
 
-// ── Types for Circle SDK ────────────────────────────────────
-// These mirror the SDK's types so the rest of the codebase
-// doesn't need to import directly from the SDK package until
-// it's installed and configured.
-
-export interface CircleClient {
-  createWalletSet: (params: { name: string }) => Promise<unknown>;
-  createWallets: (params: {
-    blockchains: string[];
-    count: number;
-    walletSetId: string;
-    metadata?: Array<{ name: string; refId: string }>;
-  }) => Promise<unknown>;
-  createTransaction: (params: {
-    blockchain: string;
-    walletId: string;
-    destinationAddress: string;
-    amount: string[];
-    tokenAddress: string;
-    fee: { type: string; config: { feeLevel: string } };
-  }) => Promise<unknown>;
-  getWalletTokenBalance: (params: { id: string }) => Promise<unknown>;
-  listTransactions: (params: {
-    walletIds: string[];
-    txType?: string;
-  }) => Promise<unknown>;
-  getTransaction: (params: { id: string }) => Promise<unknown>;
-  deriveWalletByAddress: (params: {
-    sourceBlockchain: string;
-    walletAddress: string;
-  }) => Promise<unknown>;
-}
+// Re-export the client type for use across the codebase
+export type CircleClient = CircleDeveloperControlledWalletsClient;
 
 // ── Client singleton ────────────────────────────────────────
 let _client: CircleClient | null = null;
@@ -52,6 +23,7 @@ let _client: CircleClient | null = null;
  * Usage:
  * ```ts
  * const client = await getCircleClient();
+ * if (!client) { /* demo mode *\/ }
  * const wallets = await client.createWallets({ ... });
  * ```
  *
@@ -70,8 +42,6 @@ export async function getCircleClient(): Promise<CircleClient | null> {
   }
 
   try {
-    // Dynamic import so the app doesn't crash if the SDK
-    // package isn't installed yet.
     const { initiateDeveloperControlledWalletsClient } = await import(
       '@circle-fin/developer-controlled-wallets'
     );
@@ -79,7 +49,7 @@ export async function getCircleClient(): Promise<CircleClient | null> {
     _client = initiateDeveloperControlledWalletsClient({
       apiKey: env.CIRCLE_API_KEY,
       entitySecret: env.CIRCLE_ENTITY_SECRET,
-    }) as unknown as CircleClient;
+    });
 
     console.log('✅ Circle SDK client initialized');
     return _client;
@@ -93,7 +63,7 @@ export async function getCircleClient(): Promise<CircleClient | null> {
  * Circle constants for Arc Testnet.
  */
 export const CIRCLE_CONSTANTS = {
-  BLOCKCHAIN: env.CIRCLE_WALLET_BLOCKCHAIN,
+  BLOCKCHAIN: env.CIRCLE_WALLET_BLOCKCHAIN as TokenBlockchain,
   USDC_TOKEN_ADDRESS: env.ARC_TESTNET_USDC,
   FEE_CONFIG: { type: 'level' as const, config: { feeLevel: 'MEDIUM' as const } },
 } as const;

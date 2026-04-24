@@ -53,7 +53,7 @@ function getEnv(key: string, fallback?: string): string {
 }
 
 export const env = {
-  isValid: validateEnv(),
+  isValid: !!process.env['GEMINI_API_KEY'],
 
   // Circle
   CIRCLE_API_KEY: getEnv('CIRCLE_API_KEY'),
@@ -73,6 +73,15 @@ export const env = {
   APP_URL: getEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000'),
   QUALITY_THRESHOLD: parseInt(getEnv('QUALITY_THRESHOLD', '70'), 10),
   DEFAULT_BUDGET_CAP: parseFloat(getEnv('DEFAULT_BUDGET_CAP', '0.10')),
+
+  // ERC-8004 Identity (optional — skips validation when empty)
+  ERC8004_REGISTRY_ADDRESS: getEnv('ERC8004_REGISTRY_ADDRESS'),
+
+  // Webhook (optional — skips HMAC signing when empty)
+  WEBHOOK_SECRET: getEnv('WEBHOOK_SECRET'),
+
+  // Admin (optional — no auth when empty)
+  ADMIN_SECRET: getEnv('ADMIN_SECRET'),
 } as const;
 
 export type Env = typeof env;

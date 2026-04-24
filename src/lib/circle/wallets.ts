@@ -5,6 +5,7 @@
  */
 
 import { getCircleClient, CIRCLE_CONSTANTS } from './client';
+import type { Blockchain } from '@circle-fin/developer-controlled-wallets';
 
 const AGENT_SLUGS = [
   'metadata-architect',
@@ -17,13 +18,25 @@ const AGENT_SLUGS = [
   'alttext-agent',
 ] as const;
 
+export interface AgentWalletInfo {
+  agentSlug: string;
+  walletId: string;
+  address: string;
+  blockchain: string;
+}
+
+export interface WalletSetupResult {
+  walletSetId: string;
+  wallets: AgentWalletInfo[];
+}
+
 /**
  * Create a wallet set + one wallet per agent on Arc Testnet.
  *
  * Call once during initial setup. Wallet IDs are returned
  * and should be stored/mapped to agent configs.
  */
-export async function createAgentWallets() {
+export async function createAgentWallets(): Promise<WalletSetupResult> {
   const client = await getCircleClient();
   if (!client) throw new Error('Circle SDK not available');
 
@@ -32,28 +45,35 @@ export async function createAgentWallets() {
     name: 'SEO-AEO-Swarm-Agents',
   });
 
-  const walletSetId = (walletSetRes as { data: { walletSet: { id: string } } })
-    .data.walletSet.id;
+  const walletSetId = walletSetRes.data?.walletSet?.id ?? '';
+
+  if (!walletSetId) {
+    throw new Error('Failed to create wallet set — no ID returned');
+  }
 
   // 2. Create one wallet per agent
-  const wallets = await Promise.all(
-    AGENT_SLUGS.map((slug) =>
-      client.createWallets({
-        blockchains: [CIRCLE_CONSTANTS.BLOCKCHAIN],
-        count: 1,
-        walletSetId,
-        metadata: [{ name: slug, refId: slug }],
-      })
-    )
-  );
+  const wallets: AgentWalletInfo[] = [];
 
-  return {
-    walletSetId,
-    wallets: wallets.map((w, i) => ({
-      agentSlug: AGENT_SLUGS[i],
-      wallet: w,
-    })),
-  };
+  for (const slug of AGENT_SLUGS) {
+    const walletRes = await client.createWallets({
+      blockchains: [CIRCLE_CONSTANTS.BLOCKCHAIN as Blockchain],
+      count: 1,
+      walletSetId,
+      metadata: [{ name: slug, refId: slug }],
+    });
+
+    const wallet = walletRes.data?.wallets?.[0];
+    if (wallet) {
+      wallets.push({
+        agentSlug: slug,
+        walletId: wallet.id ?? '',
+        address: wallet.address ?? '',
+        blockchain: wallet.blockchain ?? CIRCLE_CONSTANTS.BLOCKCHAIN,
+      });
+    }
+  }
+
+  return { walletSetId, wallets };
 }
 
 /**
@@ -63,7 +83,8 @@ export async function getWalletBalance(walletId: string) {
   const client = await getCircleClient();
   if (!client) throw new Error('Circle SDK not available');
 
-  return client.getWalletTokenBalance({ id: walletId });
+  const res = await client.getWalletTokenBalance({ id: walletId });
+  return res.data?.tokenBalances ?? [];
 }
 
 /**
@@ -73,8 +94,9 @@ export async function listWalletTransactions(walletIds: string[]) {
   const client = await getCircleClient();
   if (!client) throw new Error('Circle SDK not available');
 
-  return client.listTransactions({
+  const res = await client.listTransactions({
     walletIds,
     txType: 'OUTBOUND',
   });
+  return res.data?.transactions ?? [];
 }

@@ -29,6 +29,8 @@ export interface SwarmJob {
   startedAt: string;
   completedAt: string | null;
   report: ConsolidatedReport | null;
+  /** Optional webhook URL — POST results here on completion */
+  webhookUrl?: string;
 }
 
 export interface ConsolidatedReport {

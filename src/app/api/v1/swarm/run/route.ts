@@ -8,16 +8,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSwarmJob } from '@/lib/orchestrator';
 import { AGENTS, TOTAL_SWARM_COST } from '@/lib/agents';
+import { checkRateLimit, getClientId, rateLimitResponse, RATE_LIMITS } from '@/lib/rateLimit';
+import { normalizeSwarmUrl } from '@/lib/url';
 import type { SwarmRunRequest } from '@/types/swarm';
 
 export async function POST(request: NextRequest) {
+  // Rate limit check
+  const { allowed, retryAfterMs } = checkRateLimit(
+    getClientId(request),
+    RATE_LIMITS.write
+  );
+  if (!allowed) return rateLimitResponse(retryAfterMs);
+
   try {
     const body = (await request.json()) as SwarmRunRequest;
 
-    // Validate URL
-    if (!body.url || !isValidUrl(body.url)) {
+    // Validate + normalize URL
+    const normalizedUrl = normalizeSwarmUrl(body.url ?? '');
+    if (!normalizedUrl) {
       return NextResponse.json(
-        { error: 'Invalid or missing URL' },
+        { error: 'Invalid or unsupported URL. Use http(s) format.' },
         { status: 400 }
       );
     }
@@ -49,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     // Create the swarm job
     const job = createSwarmJob({
-      url: body.url,
+      url: normalizedUrl,
       agents: body.agents ?? [],
       budgetCap,
       webhookUrl: body.webhookUrl,
@@ -76,14 +86,5 @@ export async function POST(request: NextRequest) {
       { error: 'Internal server error' },
       { status: 500 }
     );
-  }
-}
-
-function isValidUrl(url: string): boolean {
-  try {
-    new URL(url);
-    return true;
-  } catch {
-    return false;
   }
 }

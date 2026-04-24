@@ -1,13 +1,16 @@
 /**
  * Gemini AI Client
  *
- * Wrapper around Google Gemini 3 API for Pro, Flash, and Vision models.
+ * Wrapper around Google Gemini API for Pro/Flash models.
  * All 8 agents use this client for their LLM inference tasks.
  */
 
 import { env } from '@/lib/env';
 
-export type GeminiModelId = 'gemini-3-pro' | 'gemini-3-flash' | 'gemini-3-vision';
+export type GeminiModelId =
+  | 'gemini-2.5-pro'
+  | 'gemini-2.5-flash'
+  | 'gemini-2.5-flash-image'; // registry alias — remapped to gemini-2.5-flash below
 
 interface GeminiResponse {
   text: string;
@@ -19,11 +22,15 @@ interface GeminiResponse {
 }
 
 /**
- * Call Gemini API with a prompt.
- *
- * Supports function calling for structured output.
- * Implements retry with exponential backoff for rate limits.
+ * Remap model IDs that don't exist in the Gemini API.
+ * 'gemini-2.5-flash-image' is NOT a real generateContent model.
+ * Vision is built into gemini-2.5-flash natively.
  */
+function resolveModel(model: GeminiModelId): string {
+  if (model === 'gemini-2.5-flash-image') return 'gemini-2.5-flash';
+  return model;
+}
+
 export async function callGemini(params: {
   model: GeminiModelId;
   prompt: string;
@@ -38,13 +45,15 @@ export async function callGemini(params: {
   }
 
   const {
-    model,
     prompt,
     systemInstruction,
     temperature = 0.7,
-    maxOutputTokens = 4096,
+    // Gemini 2.5 Flash/Pro are reasoning models — they consume tokens on
+    // internal thinking before writing output. 4096 causes empty responses.
+    maxOutputTokens = 8192,
   } = params;
 
+  const model = resolveModel(params.model);
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
 
   const body = {
@@ -52,15 +61,12 @@ export async function callGemini(params: {
     systemInstruction: systemInstruction
       ? { parts: [{ text: systemInstruction }] }
       : undefined,
-    generationConfig: {
-      temperature,
-      maxOutputTokens,
-    },
+    generationConfig: { temperature, maxOutputTokens },
   };
 
-  // Retry with exponential backoff (max 3 attempts)
   let lastError: Error | null = null;
-  for (let attempt = 0; attempt < 3; attempt++) {
+
+  for (let attempt = 0; attempt < 5; attempt++) {
     try {
       const res = await fetch(url, {
         method: 'POST',
@@ -68,10 +74,15 @@ export async function callGemini(params: {
         body: JSON.stringify(body),
       });
 
-      if (res.status === 429) {
-        // Rate limited — wait and retry
-        const waitMs = Math.pow(2, attempt) * 1000;
-        await new Promise((r) => setTimeout(r, waitMs));
+      if ([429, 500, 502, 503, 504].includes(res.status)) {
+        const errorBody = await res.text();
+        // Quota errors: throw immediately so the orchestrator applies
+        // long back-off (15-45s). Short retries here won't help.
+        if (res.status === 429 || /quota|resource_exhausted|billing/i.test(errorBody)) {
+          throw new Error(`Gemini quota exceeded: ${errorBody}`);
+        }
+        lastError = new Error(`Gemini transient error: ${res.status} ${errorBody}`);
+        await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
         continue;
       }
 
@@ -80,12 +91,17 @@ export async function callGemini(params: {
       }
 
       const data = await res.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
       const usage = data.usageMetadata ?? {
         promptTokenCount: 0,
         candidatesTokenCount: 0,
         totalTokenCount: 0,
       };
+
+      if (!text) {
+        const finishReason = data.candidates?.[0]?.finishReason;
+        console.warn(`[Gemini/${model}] Empty text response, finishReason=${finishReason}`);
+      }
 
       return {
         text,
@@ -97,6 +113,9 @@ export async function callGemini(params: {
       };
     } catch (error) {
       lastError = error as Error;
+      // Don't retry quota errors — bubble up immediately for orchestrator back-off
+      if (lastError.message.includes('quota exceeded')) throw lastError;
+      await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
     }
   }
 
@@ -104,8 +123,8 @@ export async function callGemini(params: {
 }
 
 /**
- * Call Gemini Vision model with an image URL.
- * Used by the Alt-Text Agent for image analysis.
+ * Call Gemini with an image for vision analysis.
+ * Uses gemini-2.5-flash which handles vision natively.
  */
 export async function callGeminiVision(params: {
   imageUrl: string;
@@ -115,32 +134,29 @@ export async function callGeminiVision(params: {
     throw new Error('GEMINI_API_KEY not configured');
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-vision:generateContent?key=${env.GEMINI_API_KEY}`;
+  // gemini-2.5-flash handles vision natively — no separate vision model needed
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY}`;
 
-  const body = {
-    contents: [
-      {
-        parts: [
-          { text: params.prompt },
-          {
-            inlineData: {
-              mimeType: 'image/jpeg',
-              data: params.imageUrl, // base64 encoded image
-            },
-          },
-        ],
-      },
-    ],
-  };
+  let imagePart: Record<string, unknown>;
+  if (params.imageUrl.startsWith('data:')) {
+    const [header, data] = params.imageUrl.split(',');
+    const mimeType = header.replace('data:', '').replace(';base64', '');
+    imagePart = { inlineData: { mimeType, data } };
+  } else {
+    imagePart = { fileData: { mimeType: 'image/jpeg', fileUri: params.imageUrl } };
+  }
 
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: params.prompt }, imagePart] }],
+      generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
+    }),
   });
 
   if (!res.ok) {
-    throw new Error(`Gemini Vision error: ${res.status}`);
+    throw new Error(`Gemini Vision error: ${res.status} ${await res.text()}`);
   }
 
   const data = await res.json();

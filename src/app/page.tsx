@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import SwarmRunner from '@/components/SwarmRunner';
 import AgentStatusGrid from '@/components/AgentStatusGrid';
 import TransactionLog from '@/components/TransactionLog';
@@ -10,15 +10,64 @@ import type { AgentOutput } from '@/types/agent';
 import type { SettlementRecord } from '@/types/payment';
 import type { ConsolidatedReport as ReportType } from '@/types/swarm';
 
+interface SSEEvent {
+  type: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any;
+}
+
+interface RecentJob {
+  id: string;
+  status: string;
+  url: string;
+  agentCount: number;
+  completedAgents: number;
+  failedAgents: number;
+  totalCostUSDC: number;
+  overallScore: number | null;
+  startedAt: string;
+  completedAt: string | null;
+}
+
 export default function Dashboard() {
   const [isRunning, setIsRunning] = useState(false);
   const [outputs, setOutputs] = useState<AgentOutput[]>([]);
   const [settlements, setSettlements] = useState<SettlementRecord[]>([]);
   const [report, setReport] = useState<ReportType | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string>('');
+  const [recentJobs, setRecentJobs] = useState<RecentJob[]>([]);
+  const [envOk, setEnvOk] = useState(true); // assume ok until checked
 
-  const handleRunSwarm = async (url: string) => {
+  // Fetch recent jobs on mount and after each run
+  const fetchRecentJobs = useCallback(async () => {
+    try {
+      const res = await fetch('/api/v1/swarm/jobs?limit=10');
+      if (res.ok) {
+        const data = await res.json();
+        setRecentJobs(data.jobs ?? []);
+      }
+    } catch {
+      // Silently fail — not critical
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchRecentJobs();
+  }, [fetchRecentJobs]);
+
+  // Check env credentials on mount
+  useEffect(() => {
+    fetch('/api/v1/env-check')
+      .then((r) => r.json())
+      .then((d) => setEnvOk(d.ok ?? true))
+      .catch(() => setEnvOk(true)); // fail open — don't show banner on network error
+  }, []);
+
+  const handleRunSwarm = useCallback(async (url: string) => {
     setIsRunning(true);
     setReport(null);
+    setSettlements([]);
+    setStatusMessage('Creating swarm job...');
 
     // Initialize all agents to "queued"
     const initialOutputs: AgentOutput[] = AGENTS.map((a) => ({
@@ -33,7 +82,7 @@ export default function Dashboard() {
     setOutputs(initialOutputs);
 
     try {
-      const res = await fetch('/api/v1/swarm/run', {
+      const res = await fetch('/api/v1/swarm/run/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -44,80 +93,47 @@ export default function Dashboard() {
       });
 
       if (!res.ok) {
-        throw new Error(`API error: ${res.status}`);
+        const errorData = await res.json();
+        throw new Error(errorData.error || `API error: ${res.status}`);
       }
 
-      const data = await res.json();
-      console.log('Swarm job created:', data);
+      // Read the SSE stream
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('No response stream');
 
-      // Simulate agent execution for demo
-      for (let i = 0; i < AGENTS.length; i++) {
-        await new Promise((r) => setTimeout(r, 600));
-        setOutputs((prev) =>
-          prev.map((o, idx) =>
-            idx === i
-              ? { ...o, status: 'running' as const, startedAt: new Date().toISOString() }
-              : idx < i
-              ? { ...o, status: 'complete' as const, qualityScore: 75 + Math.floor(Math.random() * 20) }
-              : o
-          )
-        );
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Process complete SSE messages
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6).trim();
+
+          if (data === '[DONE]') {
+            setStatusMessage('Swarm run complete!');
+            continue;
+          }
+
+          try {
+            const event: SSEEvent = JSON.parse(data);
+            handleSSEEvent(event);
+          } catch {
+            // Skip invalid JSON
+          }
+        }
       }
-
-      // Mark all complete
-      await new Promise((r) => setTimeout(r, 400));
-      const completedOutputs: AgentOutput[] = AGENTS.map((a) => ({
-        agentId: a.id,
-        status: 'complete' as const,
-        result: { summary: `Analysis complete for ${a.name}` },
-        qualityScore: 75 + Math.floor(Math.random() * 20),
-        startedAt: new Date().toISOString(),
-        completedAt: new Date().toISOString(),
-        error: null,
-      }));
-      setOutputs(completedOutputs);
-
-      // Generate demo settlements
-      const demoSettlements: SettlementRecord[] = AGENTS.map((a) => ({
-        id: `tx-${a.id}-${Date.now()}`,
-        agentId: a.id,
-        agentName: a.name,
-        amountUSDC: a.costUSDC.toFixed(3),
-        walletId: 'demo-wallet',
-        destinationAddress: '0x' + 'a'.repeat(40),
-        txHash: '0x' + Math.random().toString(16).slice(2, 66),
-        state: 'COMPLETE' as const,
-        explorerUrl: `https://testnet.arcscan.app/tx/0x${Math.random().toString(16).slice(2, 66)}`,
-        createdAt: new Date().toISOString(),
-        completedAt: new Date().toISOString(),
-      }));
-      setSettlements(demoSettlements);
-
-      // Generate demo report
-      const seoAgents = completedOutputs.filter((o) => AGENTS.find((a) => a.id === o.agentId)?.wing === 'SEO');
-      const aeoAgents = completedOutputs.filter((o) => AGENTS.find((a) => a.id === o.agentId)?.wing === 'AEO');
-      const avgScore = (arr: AgentOutput[]) =>
-        Math.round(arr.reduce((s, o) => s + (o.qualityScore ?? 0), 0) / arr.length);
-
-      setReport({
-        jobId: data.job?.id ?? 'demo',
-        url,
-        seoScore: avgScore(seoAgents),
-        aeoScore: avgScore(aeoAgents),
-        overallScore: avgScore(completedOutputs),
-        sections: AGENTS.map((a) => ({
-          agentId: a.id,
-          agentName: a.name,
-          wing: a.wing,
-          title: a.task,
-          findings: [],
-          recommendations: [],
-          data: {},
-        })),
-        generatedAt: new Date().toISOString(),
-      });
     } catch (error) {
       console.error('Swarm run failed:', error);
+      setStatusMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setOutputs((prev) =>
         prev.map((o) => ({
           ...o,
@@ -127,8 +143,98 @@ export default function Dashboard() {
       );
     } finally {
       setIsRunning(false);
+      // Refresh recent jobs after run completes
+      fetchRecentJobs();
     }
-  };
+  }, [fetchRecentJobs]);
+
+  const handleSSEEvent = useCallback((event: SSEEvent) => {
+    switch (event.type) {
+      case 'job:started':
+        setStatusMessage(`Job ${event.job?.id} started — fetching page content...`);
+        break;
+
+      case 'page:fetched':
+        setStatusMessage(
+          event.contentLength > 0
+            ? `Page fetched (${(event.contentLength / 1024).toFixed(1)}KB) — dispatching agents...`
+            : 'Page content unavailable — agents will analyze based on URL...'
+        );
+        break;
+
+      case 'agent:started':
+        setStatusMessage(`Running: ${event.agentName}...`);
+        setOutputs((prev) =>
+          prev.map((o) =>
+            o.agentId === event.agentId
+              ? { ...o, status: 'running' as const, startedAt: new Date().toISOString() }
+              : o
+          )
+        );
+        break;
+
+      case 'agent:completed': {
+        const output = event.output as AgentOutput;
+        setOutputs((prev) =>
+          prev.map((o) => (o.agentId === output.agentId ? output : o))
+        );
+        if (output.status === 'complete') {
+          const agent = AGENTS.find((a) => a.id === output.agentId);
+          setStatusMessage(`${agent?.name ?? output.agentId} complete (score: ${output.qualityScore})`);
+        } else {
+          setStatusMessage(`${output.agentId} failed: ${output.error}`);
+        }
+        break;
+      }
+
+      case 'settlement:completed': {
+        const settlement = event.settlement as SettlementRecord;
+        setSettlements((prev) => [...prev, settlement]);
+        setStatusMessage(`Settled $${parseFloat(settlement.amountUSDC).toFixed(3)} for ${settlement.agentName}`);
+        break;
+      }
+
+      case 'settlement:skipped':
+        setStatusMessage(`Settlement skipped for ${event.agentId}: ${event.reason}`);
+        break;
+
+      case 'report:generated':
+        setReport(event.report as ReportType);
+        setStatusMessage('Report generated!');
+        break;
+
+      case 'webhook:sent':
+        setStatusMessage(
+          event.success
+            ? `Webhook delivered to ${event.url}`
+            : `Webhook failed: ${event.url}`
+        );
+        break;
+
+      case 'job:completed':
+        setStatusMessage('Swarm run complete!');
+        break;
+
+      case 'job:error':
+        setStatusMessage(`Error: ${event.error}`);
+        break;
+    }
+  }, []);
+
+  function formatTimeAgo(isoStr: string): string {
+    const seconds = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
+    if (seconds < 60) return `${seconds}s ago`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 86400)}d ago`;
+  }
+
+  function getScoreClass(score: number | null): string {
+    if (score === null) return '';
+    if (score >= 70) return 'recent-jobs__score--high';
+    if (score >= 40) return 'recent-jobs__score--mid';
+    return 'recent-jobs__score--low';
+  }
 
   return (
     <div className="app-container">
@@ -138,20 +244,29 @@ export default function Dashboard() {
           <span className="header__badge-dot" />
           Arc Testnet · Live
         </div>
-        <h1 className="header__title">Agentic SEO & AEO Swarm</h1>
+        <h1 className="header__title">Agentic SEO &amp; AEO Swarm</h1>
         <p className="header__subtitle">
           8 AI agents · Circle Nanopayments · Arc L1 Settlement
         </p>
       </header>
 
-      {/* Environment warning */}
-      <div className="env-banner">
-        <span className="env-banner__icon">⚠️</span>
-        <span>
-          Running in <strong>demo mode</strong> — connect your <code>.env.local</code> credentials
-          to enable live Circle SDK + Gemini AI integration.
-        </span>
-      </div>
+      {/* Status message */}
+      {statusMessage && (
+        <div className="status-banner">
+          <span>{statusMessage}</span>
+        </div>
+      )}
+
+      {/* Environment warning - only show when env check fails */}
+      {!isRunning && !report && !envOk && (
+        <div className="env-banner">
+          <span>
+            Configure your <code>.env.local</code> credentials to enable live
+            Circle SDK + Gemini AI integration. Without <code>GEMINI_API_KEY</code>,
+            agents will return errors.
+          </span>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="stats-row">
@@ -188,6 +303,91 @@ export default function Dashboard() {
         </div>
         <TransactionLog settlements={settlements} />
       </div>
+
+      {/* Recent Jobs */}
+      {recentJobs.length > 0 && (
+        <div className="recent-jobs glass-card" style={{ marginTop: 32 }}>
+          <div className="glass-card__header">
+            <h2 className="glass-card__title">
+              Recent Jobs
+            </h2>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              {recentJobs.length} job{recentJobs.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="glass-card__body" style={{ padding: 0 }}>
+            <table className="recent-jobs__table">
+              <thead>
+                <tr>
+                  <th>Job ID</th>
+                  <th>URL</th>
+                  <th>Status</th>
+                  <th>Agents</th>
+                  <th>Score</th>
+                  <th>Cost</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentJobs.map((job) => (
+                  <tr key={job.id}>
+                    <td>
+                      <span className="recent-jobs__id">
+                        {job.id.slice(0, 16)}…
+                      </span>
+                    </td>
+                    <td>
+                      <span className="recent-jobs__url" title={job.url}>
+                        {new URL(job.url).hostname}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`recent-jobs__badge recent-jobs__badge--${job.status}`}>
+                        {job.status}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ color: 'var(--accent-emerald)' }}>
+                        {job.completedAgents}
+                      </span>
+                      {job.failedAgents > 0 && (
+                        <>
+                          {' / '}
+                          <span style={{ color: 'var(--accent-rose)' }}>
+                            {job.failedAgents}
+                          </span>
+                        </>
+                      )}
+                      <span style={{ color: 'var(--text-muted)' }}>
+                        {' '}/ {job.agentCount}
+                      </span>
+                    </td>
+                    <td>
+                      {job.overallScore !== null ? (
+                        <span className={`recent-jobs__score ${getScoreClass(job.overallScore)}`}>
+                          {job.overallScore}
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)' }}>—</span>
+                      )}
+                    </td>
+                    <td>
+                      <span className="recent-jobs__cost">
+                        ${job.totalCostUSDC.toFixed(3)}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="recent-jobs__time">
+                        {formatTimeAgo(job.startedAt)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

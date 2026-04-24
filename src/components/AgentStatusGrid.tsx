@@ -12,7 +12,7 @@ export default function AgentStatusGrid({ outputs }: AgentStatusGridProps) {
     <div className="glass-card">
       <div className="glass-card__header">
         <h2 className="glass-card__title">
-          <span>🤖</span> Agent Swarm
+          Agent Swarm
         </h2>
         <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -36,14 +36,13 @@ export default function AgentStatusGrid({ outputs }: AgentStatusGridProps) {
                 className={`agent-card agent-card--${agent.wing.toLowerCase()}`}
               >
                 <div className="agent-card__top">
-                  <span className="agent-card__icon">{agent.icon}</span>
+                  <div className="agent-card__name">{agent.name}</div>
                   <span
                     className={`agent-card__wing agent-card__wing--${agent.wing.toLowerCase()}`}
                   >
                     {agent.wing}
                   </span>
                 </div>
-                <div className="agent-card__name">{agent.name}</div>
                 <div className="agent-card__task">{agent.task}</div>
                 <div className="agent-card__footer">
                   <span className="agent-card__cost">
@@ -55,6 +54,14 @@ export default function AgentStatusGrid({ outputs }: AgentStatusGridProps) {
                     />
                     {status.charAt(0).toUpperCase() + status.slice(1)}
                   </span>
+                </div>
+                {status === 'failed' && output?.error && (
+                  <div className="agent-card__error">
+                    {output.error}
+                  </div>
+                )}
+                <div className="agent-card__progress-container">
+                  <div className={`agent-card__progress-bar agent-card__progress-bar--${status}`} />
                 </div>
               </div>
             );
