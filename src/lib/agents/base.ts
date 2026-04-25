@@ -125,7 +125,7 @@ export abstract class BaseAgent {
 
     // --- Attempt 3: extract the LAST {...} block (thinking models prepend reasoning text) ---
     // We use lastIndexOf logic via matchAll to get the largest/last JSON object
-    const allObjectMatches = [...text.matchAll(/\{[\s\S]*?\}/g)];
+    const allObjectMatches = Array.from(text.matchAll(/\{[\s\S]*?\}/g));
     // Try from largest match to smallest (greedy scan)
     const greedyMatch = text.match(/\{[\s\S]*\}/);
     if (greedyMatch) {
