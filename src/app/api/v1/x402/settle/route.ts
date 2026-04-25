@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      transactionHash: result.transactionHash,
+      transactionHash: result.paymentReceipt?.transaction ?? null,
       status: result.status,
     });
   } catch (error) {
