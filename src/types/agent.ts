@@ -25,7 +25,7 @@ export interface AgentConfig {
   model: GeminiModel;
   task: string;
   costUSDC: number;
-  icon: string;
+  icon?: string;
   /** Circle wallet address on Arc Testnet (set after wallet creation) */
   walletAddress?: string;
   /** Circle wallet ID for SDK operations */
