@@ -46,11 +46,19 @@ export async function POST(request: NextRequest) {
       network,
     });
 
-    return NextResponse.json({
-      success: true,
-      transactionHash: result.paymentReceipt?.transaction ?? null,
-      status: result.status,
-    });
+    if (result.status === 200) {
+      return NextResponse.json({
+        success: true,
+        transactionHash: result.paymentReceipt?.transaction ?? null,
+        status: result.status,
+      });
+    } else {
+      return NextResponse.json({
+        success: false,
+        status: result.status,
+        error: (result as any).responseBody?.error ?? "Payment failed",
+      }, { status: result.status });
+    }
   } catch (error) {
     console.error('x402 Settlement Error:', error);
     return NextResponse.json(
