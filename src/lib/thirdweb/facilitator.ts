@@ -70,5 +70,7 @@ export async function settleThirdwebPayment(params: {
     price: `$${amount}`,
     network,
     facilitator: facilitatorInstance,
+    resourceUrl: '/',
+    method: 'GET',
   });
 }
