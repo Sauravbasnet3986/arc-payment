@@ -39,9 +39,10 @@ The **Agentic SEO & AEO Optimization Swarm** is a production-ready scaffold for 
 1. **Accepts a URL** via dashboard or REST API
 2. **Decomposes the task** into 8 parallel sub-tasks using Gemini 3 Pro
 3. **Dispatches 8 specialized agents** (4 SEO + 4 AEO) for parallel analysis
-4. **Validates quality** of each agent's output against configurable thresholds
-5. **Settles USDC micro-payments** per agent task via Circle SDK on Arc L1
-6. **Assembles a consolidated report** with SEO/AEO scores and recommendations
+4. **Auto-Failover Logic** ensuring 100% uptime by seamlessly falling back to DeepSeek/Llama via Featherless API if Gemini quotas are exhausted
+5. **Validates quality** of each agent's output against configurable thresholds
+6. **Settles USDC micro-payments** per agent task via Circle SDK on Arc L1
+7. **Assembles a consolidated report** with SEO/AEO scores and recommendations
 
 Total cost per full swarm run: **$0.054** — made viable by Arc's USDC-native gas model.
 
@@ -58,25 +59,26 @@ Total cost per full swarm run: **$0.054** — made viable by Arc's USDC-native g
 │  Gemini 3 Pro  ·  Task Decomposer  ·  Quality Validator          │
 ├──────────────────────────────────────────────────────────────────┤
 │  LAYER 3 — AGENT SWARM                                           │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐│
-│  │  Metadata    │ │  Keyword    │ │  Tech Health│ │  Link       ││
-│  │  Architect   │ │  Specialist │ │  Monitor    │ │  Strategist ││
-│  │  SEO · Flash │ │  SEO · Flash│ │  SEO · Flash│ │  SEO · Flash││
-│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘│
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐│
-│  │  Schema      │ │  Snippet    │ │  Conversa-  │ │  Alt-Text   ││
-│  │  Engineer    │ │  Transformer│ │  tional Aud.│ │  Agent      ││
-│  │  AEO · Pro   │ │  AEO · Pro  │ │  AEO · Flash│ │  AEO · Vis. ││
-│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘│
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ │
+│  │  Metadata   │ │   Keyword   │ │ Tech Health │ │    Link     │ │
+│  │  Architect  │ │  Specialist │ │   Monitor   │ │  Strategist │ │
+│  │ SEO · Flash │ │ SEO · Flash │ │ SEO · Flash │ │ SEO · Flash │ │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ │
+│  │   Schema    │ │   Snippet   │ │  Conversa-  │ │  Alt-Text   │ │
+│  │  Engineer   │ │ Transformer │ │ tional Aud. │ │    Agent    │ │
+│  │  AEO · Pro  │ │  AEO · Pro  │ │ AEO · Flash │ │ AEO · Vis.  │ │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ │
 ├──────────────────────────────────────────────────────────────────┤
-│  LAYER 4 — AI INTELLIGENCE                                       │
-│  Gemini 3 Pro  ·  Gemini 3 Flash  ·  Gemini 3 Vision            │
+│  LAYER 4 — AI INTELLIGENCE & HIGH AVAILABILITY                   │
+│  Primary: Gemini 3 Pro · Flash · Vision                          │
+│  Fallback: DeepSeek V3.2 · Llama 3 via Featherless API           │
 ├──────────────────────────────────────────────────────────────────┤
 │  LAYER 5 — PAYMENT                                               │
-│  Circle SDK  ·  Dev-Controlled Wallets  ·  Nanopayments  ·  x402│
+│  Circle SDK  ·  Dev-Controlled Wallets  ·  Nanopayments  ·  x402 │
 ├──────────────────────────────────────────────────────────────────┤
 │  LAYER 6 — BLOCKCHAIN                                            │
-│  Arc L1 (EVM)  ·  Malachite BFT  ·  < 1s Finality  ·  ERC-8004 │
+│  Arc L1 (EVM)  ·  Malachite BFT  ·  < 1s Finality  ·  ERC-8004   │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -157,11 +159,13 @@ Create `.env.local` from the provided `.env.example`. All variables are document
 | `ARC_TESTNET_CHAIN_ID` | Arc References | Chain ID for EIP-3009 typed data signing |
 | `ARC_TESTNET_USDC` | Default: `0x360...000` | USDC token contract address on Arc Testnet |
 
-### Required — AI
+### Required — AI & High Availability
 
 | Variable | Source | Description |
 |----------|--------|-------------|
 | `GEMINI_API_KEY` | [AI Studio](https://ai.google.dev) | Gemini 3 Pro + Flash + Vision API access |
+| `FEATHERLESS_API_KEY` | [Featherless Console](https://featherless.ai) | API key for failover/fallback LLM generation |
+| `FEATHERLESS_MODEL` | DeepSeek/Llama ID | e.g. `deepseek-ai/DeepSeek-V3.2` |
 
 ### Optional (with defaults)
 
@@ -297,7 +301,9 @@ arc-payment/
 | **Circle SDK** | Wallet infrastructure | MPC wallets, USDC transfers, transaction management |
 | **Circle Nanopayments** | Micro-payments | EIP-3009 off-chain signing, batched on-chain settlement |
 | **x402 Protocol** | HTTP payments | Machine-to-machine payment standard (HTTP 402) |
-| **Gemini 3** | AI inference | Pro (complex tasks), Flash (fast tasks), Vision (images) |
+| **Thirdweb** | x402 Facilitator | Gasless on-chain settlement via EIP-7702 |
+| **Gemini 3** | AI inference | Primary engines: Pro (complex tasks), Flash (fast tasks), Vision (images) |
+| **Featherless API** | AI Fallback | Zero-downtime execution routing to open-source models (DeepSeek V3, Llama 3) |
 | **ERC-8004** | Agent identity | On-chain reputation, task proofs, identity validation |
 
 ### Why Arc L1?
@@ -382,8 +388,10 @@ Traditional EVM chains (Ethereum, Polygon) have gas costs of **$0.01–$5.00 per
 - [x] Integrate real Circle SDK types (`CircleDeveloperControlledWalletsClient`)
 - [x] Create automated wallet setup API (`POST /api/v1/admin/wallets/setup`)
 - [x] Implement robust rate limiting (token-bucket middleware)
-- [x] Agent retry logic (max 2 retries on transient errors)
+- [x] Agent retry logic & HA Failover (Gemini → Featherless API)
+- [x] Concurrent Queueing to respect LLM provider token/request limits
 - [x] Health check endpoint (`GET /api/v1/health`)
+- [x] Professional dashboard redesign (full-width reports, glassmorphism, no-emoji aesthetic)
 - [ ] Fund wallets via faucet.circle.com (Manual Step)
 - [ ] Deploy ERC-8004 identity registry contract (Manual Step)
 - [ ] Mainnet migration (when Arc mainnet launches)

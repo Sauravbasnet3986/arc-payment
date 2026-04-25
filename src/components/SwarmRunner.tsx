@@ -21,7 +21,7 @@ export default function SwarmRunner({ onSubmit, isRunning }: SwarmRunnerProps) {
     <div className="swarm-runner glass-card">
       <div className="glass-card__header">
         <h2 className="glass-card__title">
-          <span>🚀</span> Launch Swarm
+          Launch Swarm
         </h2>
         <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>
           $0.054 / run
@@ -30,11 +30,11 @@ export default function SwarmRunner({ onSubmit, isRunning }: SwarmRunnerProps) {
       <div className="glass-card__body">
         <form className="swarm-runner__form" onSubmit={handleSubmit}>
           <div className="swarm-runner__input-wrapper">
-            <span className="swarm-runner__input-icon">🌐</span>
             <input
               id="swarm-url-input"
               type="url"
               className="swarm-runner__input"
+              style={{ paddingLeft: '16px' }}
               placeholder="Enter URL to optimize (e.g. https://example.com)"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
@@ -49,9 +49,9 @@ export default function SwarmRunner({ onSubmit, isRunning }: SwarmRunnerProps) {
             disabled={isRunning || !url.trim()}
           >
             {isRunning ? (
-              <>⏳ Running...</>
+              <>Running...</>
             ) : (
-              <>⚡ Run Swarm</>
+              <>Run Swarm</>
             )}
           </button>
         </form>

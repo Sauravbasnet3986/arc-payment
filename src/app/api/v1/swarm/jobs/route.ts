@@ -15,7 +15,12 @@ export async function GET(request: NextRequest) {
     50
   );
 
-  const jobs = listJobs(limit);
+  const allJobs = listJobs(100);
+  const jobs = allJobs.slice(0, limit);
+  const totalTransactions = allJobs.reduce(
+    (sum, job) => sum + job.settlements.length,
+    0
+  );
 
   return NextResponse.json({
     jobs: jobs.map((job) => ({
@@ -35,5 +40,6 @@ export async function GET(request: NextRequest) {
       completedAt: job.completedAt,
     })),
     total: getJobCount(),
+    totalTransactions,
   });
 }

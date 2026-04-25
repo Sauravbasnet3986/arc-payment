@@ -42,4 +42,6 @@ export interface AgentOutput {
   error: string | null;
   /** Number of retries attempted (0 = first try succeeded) */
   retryCount?: number;
+  /** x402 payment signature (e.g. EIP-3009 or EIP-2612) */
+  paymentData?: string;
 }

@@ -515,7 +515,10 @@ export function assembleReport(
       agentId: agent.id,
       agentName: agent.name,
       wing: agent.wing,
+      costUSDC: agent.costUSDC,
       title: agent.task,
+      startedAt: output.startedAt,
+      completedAt: output.completedAt,
       findings: findings.slice(0, 10), // Cap at 10
       recommendations: recommendations.slice(0, 10),
       data: result,
@@ -528,6 +531,7 @@ export function assembleReport(
     seoScore: Math.round(avgScore(seoOutputs)),
     aeoScore: Math.round(avgScore(aeoOutputs)),
     overallScore: Math.round(avgScore(completedOutputs)),
+    totalCostUSDC: job.totalCostUSDC,
     sections,
     generatedAt: new Date().toISOString(),
   };

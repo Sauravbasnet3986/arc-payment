@@ -31,6 +31,100 @@ function resolveModel(model: GeminiModelId): string {
   return model;
 }
 
+// --- Concurrency Limiter ---
+// Featherless limits orgs to 4 concurrency units. 
+// DeepSeek-V3.2 costs 4 units per request, so we can only allow 1 at a time.
+class ConcurrencyLimiter {
+  private queue: (() => void)[] = [];
+  private active = 0;
+  constructor(private concurrency: number) {}
+
+  async acquire(): Promise<void> {
+    if (this.active < this.concurrency) {
+      this.active++;
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      this.queue.push(resolve);
+    });
+  }
+
+  release(): void {
+    if (this.queue.length > 0) {
+      const next = this.queue.shift();
+      next?.();
+    } else {
+      this.active--;
+    }
+  }
+}
+
+const featherlessLimiter = new ConcurrencyLimiter(1);
+
+// --- Featherless Fallback ---
+async function callFeatherlessFallback(params: {
+  model: string;
+  prompt: string;
+  systemInstruction?: string;
+  temperature?: number;
+  maxOutputTokens?: number;
+}): Promise<GeminiResponse> {
+  if (!env.FEATHERLESS_API_KEY) {
+    throw new Error('FEATHERLESS_API_KEY not configured for fallback');
+  }
+
+  const featherlessModel = env.FEATHERLESS_MODEL || params.model;
+  
+  const messages = [];
+  if (params.systemInstruction) {
+    messages.push({ role: 'system', content: params.systemInstruction });
+  }
+  messages.push({ role: 'user', content: params.prompt });
+
+  console.log(`[Featherless/${featherlessModel}] Queuing fallback generation...`);
+  await featherlessLimiter.acquire();
+  
+  try {
+    console.log(`[Featherless/${featherlessModel}] Starting API request...`);
+    const res = await fetch('https://api.featherless.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${env.FEATHERLESS_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: featherlessModel,
+        messages,
+        temperature: params.temperature ?? 0.7,
+        max_tokens: params.maxOutputTokens ?? 8192,
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Featherless API error: ${res.status} ${await res.text()}`);
+    }
+
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content ?? '';
+    const usage = data.usage ?? {
+      prompt_tokens: 0,
+      completion_tokens: 0,
+      total_tokens: 0,
+    };
+
+    return {
+      text,
+      usage: {
+        promptTokens: usage.prompt_tokens,
+        completionTokens: usage.completion_tokens,
+        totalTokens: usage.total_tokens,
+      },
+    };
+  } finally {
+    featherlessLimiter.release();
+  }
+}
+
 export async function callGemini(params: {
   model: GeminiModelId;
   prompt: string;
@@ -76,9 +170,13 @@ export async function callGemini(params: {
 
       if ([429, 500, 502, 503, 504].includes(res.status)) {
         const errorBody = await res.text();
-        // Quota errors: throw immediately so the orchestrator applies
-        // long back-off (15-45s). Short retries here won't help.
+        // Quota errors: fallback immediately
         if (res.status === 429 || /quota|resource_exhausted|billing/i.test(errorBody)) {
+          console.warn(`[Gemini/${model}] Quota exceeded or rate limited. Triggering Featherless fallback...`);
+          if (env.FEATHERLESS_API_KEY) {
+            await new Promise((r) => setTimeout(r, 2000)); // 2s wait
+            return await callFeatherlessFallback(params);
+          }
           throw new Error(`Gemini quota exceeded: ${errorBody}`);
         }
         lastError = new Error(`Gemini transient error: ${res.status} ${errorBody}`);
@@ -113,10 +211,23 @@ export async function callGemini(params: {
       };
     } catch (error) {
       lastError = error as Error;
-      // Don't retry quota errors — bubble up immediately for orchestrator back-off
-      if (lastError.message.includes('quota exceeded')) throw lastError;
+      // Fallback for quota errors that throw early
+      if (lastError.message.includes('quota exceeded') && env.FEATHERLESS_API_KEY) {
+        console.warn(`[Gemini/${model}] Caught quota error. Triggering Featherless fallback...`);
+        await new Promise((r) => setTimeout(r, 2000)); // 2s wait
+        return await callFeatherlessFallback(params);
+      } else if (lastError.message.includes('quota exceeded')) {
+        throw lastError;
+      }
       await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
     }
+  }
+
+  // Exhausted all 5 retries. Fallback if configured.
+  if (env.FEATHERLESS_API_KEY) {
+    console.warn(`[Gemini/${model}] All retries failed. Triggering Featherless fallback...`);
+    await new Promise((r) => setTimeout(r, 2000)); // 2s wait
+    return await callFeatherlessFallback(params);
   }
 
   throw lastError ?? new Error('Gemini API call failed');

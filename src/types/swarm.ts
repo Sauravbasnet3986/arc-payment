@@ -39,6 +39,7 @@ export interface ConsolidatedReport {
   seoScore: number;
   aeoScore: number;
   overallScore: number;
+  totalCostUSDC: number;
   sections: ReportSection[];
   generatedAt: string;
 }
@@ -47,7 +48,10 @@ export interface ReportSection {
   agentId: string;
   agentName: string;
   wing: 'SEO' | 'AEO';
+  costUSDC: number;
   title: string;
+  startedAt: string | null;
+  completedAt: string | null;
   findings: string[];
   recommendations: string[];
   data: Record<string, unknown>;

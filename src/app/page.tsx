@@ -5,6 +5,7 @@ import SwarmRunner from '@/components/SwarmRunner';
 import AgentStatusGrid from '@/components/AgentStatusGrid';
 import TransactionLog from '@/components/TransactionLog';
 import ConsolidatedReport from '@/components/ConsolidatedReport';
+import CostSummary from '@/components/CostSummary';
 import { AGENTS, TOTAL_SWARM_COST } from '@/lib/agents/registry';
 import type { AgentOutput } from '@/types/agent';
 import type { SettlementRecord } from '@/types/payment';
@@ -36,6 +37,7 @@ export default function Dashboard() {
   const [report, setReport] = useState<ReportType | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [recentJobs, setRecentJobs] = useState<RecentJob[]>([]);
+  const [totalTransactions, setTotalTransactions] = useState<number>(0);
   const [envOk, setEnvOk] = useState(true); // assume ok until checked
 
   // Fetch recent jobs on mount and after each run
@@ -45,6 +47,7 @@ export default function Dashboard() {
       if (res.ok) {
         const data = await res.json();
         setRecentJobs(data.jobs ?? []);
+        setTotalTransactions(data.totalTransactions ?? 0);
       }
     } catch {
       // Silently fail — not critical
@@ -285,9 +288,9 @@ export default function Dashboard() {
           <div className="stat-card__value stat-card__value--cyan">&lt; 1s</div>
         </div>
         <div className="stat-card">
-          <div className="stat-card__label">Settlements</div>
+          <div className="stat-card__label">On-chain Tx</div>
           <div className="stat-card__value stat-card__value--amber">
-            {settlements.filter((s) => s.state === 'COMPLETE').length}
+            {totalTransactions}
           </div>
         </div>
       </div>
@@ -299,9 +302,16 @@ export default function Dashboard() {
       <div className="dashboard-grid">
         <div>
           <AgentStatusGrid outputs={outputs} />
-          <ConsolidatedReport report={report} />
         </div>
-        <TransactionLog settlements={settlements} />
+        <div>
+          <CostSummary settlements={settlements} outputs={outputs} />
+          <TransactionLog settlements={settlements} />
+        </div>
+      </div>
+
+      {/* Full Width Report */}
+      <div>
+        <ConsolidatedReport report={report} />
       </div>
 
       {/* Recent Jobs */}

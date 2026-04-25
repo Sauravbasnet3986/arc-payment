@@ -82,6 +82,14 @@ export const env = {
 
   // Admin (optional — no auth when empty)
   ADMIN_SECRET: getEnv('ADMIN_SECRET'),
+
+  // Thirdweb x402 Facilitator (optional)
+  THIRDWEB_SECRET_KEY: getEnv('THIRDWEB_SECRET_KEY'),
+  FACILITATOR_SERVER_WALLET: getEnv('FACILITATOR_SERVER_WALLET'),
+
+  // Featherless API Fallback
+  FEATHERLESS_API_KEY: getEnv('FEATHERLESS_API_KEY'),
+  FEATHERLESS_MODEL: getEnv('FEATHERLESS_MODEL', 'deepseek-ai/DeepSeek-V3.2'),
 } as const;
 
 export type Env = typeof env;
